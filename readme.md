@@ -18,7 +18,36 @@ mkdir events
 venv/bin/python server.py
 ```
 
-## Client side
+Your log files will be collected to ``events`` folder
 
-See example of implementation from `client.sh`
+## Client side
+You need to add following code to your script to be able to send output logs to the server...
+
+You have 2 options:
+
+- Option #1 is zero dependencies, tho quite dangerous since if you have networking issues or 
+your network goes entirely down you are screwed because the named pipe blocks ``tee``, your output will be blocked and pretty much everything just hung
+```shell script
+[[ ! -p event_server ]] && mkfifo event_server
+nc localhost 8888 <event_server &
+ABSOLUTE_PIPE_PATH="$(readlink -e event_server)"
+exec 1> >(tee "${ABSOLUTE_PIPE_PATH}") 2>&1
+```
+
+- Option #2 solves the issue above, tho instead of ``tea``, you need to use 
+non-standard cli tool ``bftee`` (source code is in ``bftee.c``), which easily handles 
+networking issues. It has its own buffer, and if the buffer is full (~ 16MB) in case of some 
+networking or related issues - all new incoming data will be discarded, pipes to stdout, and stderr 
+are still will be alive/valid. Also as ``bftee`` has it's own buffer it consumes stdin in async  
+To compile ``bftee``:
+```shell script
+# CentOS:
+yum install -y gcc
+# Ubuntu:
+apt install build-essential
+# Compile
+gcc "bftee.c" -o bftee
+mv bftee /usr/bin
+```
+Now just use an example of implementation from ``client.sh`` 
 
